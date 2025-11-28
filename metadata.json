@@ -1,0 +1,5 @@
+{
+  "name": "Airflow DAG Generator",
+  "description": "A JupyterLab-styled interface to scaffold Airflow DAG projects, generating strict folder structures, meta.yaml configurations, and CI/CD pipelines.",
+  "requestFramePermissions": []
+}
