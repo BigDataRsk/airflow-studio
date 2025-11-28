@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ProjectConfig, ALLOWED_SILOTS } from '../types';
+import { ProjectConfig, SILOTS_LIL, SILOTS_SXB } from '../types';
 import { Database, FolderOpen, HardDrive, ArrowRight, FolderInput, FolderOutput } from 'lucide-react';
 
 interface IOBuilderProps {
@@ -20,6 +20,8 @@ const Toggle = ({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 );
 
 export const IOBuilder: React.FC<IOBuilderProps> = ({ config, onChange, onOpenFilePicker, onContinue }) => {
+  const currentSilots = config.stage === 'SXB' ? SILOTS_SXB : SILOTS_LIL;
+
   return (
     <div className="space-y-8">
         
@@ -39,9 +41,9 @@ export const IOBuilder: React.FC<IOBuilderProps> = ({ config, onChange, onOpenFi
              </div>
 
              <div className={`transition-all duration-300 overflow-hidden ${config.use_vertica ? 'max-h-40 opacity-100 mt-4' : 'max-h-0 opacity-50'}`}>
-                 <label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">Select Silot Context</label>
+                 <label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">Select Silot Context ({config.stage})</label>
                  <div className="flex gap-3">
-                     {ALLOWED_SILOTS.map(s => (
+                     {currentSilots.map(s => (
                          <button 
                             key={s} 
                             onClick={() => onChange('silot', s)}
@@ -74,39 +76,53 @@ export const IOBuilder: React.FC<IOBuilderProps> = ({ config, onChange, onOpenFi
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Input Folder */}
-                <div className="w-full group cursor-pointer" onClick={() => onOpenFilePicker('input')}>
-                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1">Input Source</label>
-                    <div className="relative flex items-center w-full p-1 bg-white border border-slate-200 rounded-xl hover:border-emerald-400 transition-all shadow-sm group-hover:shadow-md">
-                        <div className="flex items-center justify-center w-10 h-10 ml-1 rounded-lg bg-emerald-50 text-emerald-600">
-                            <FolderInput className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1 px-3 py-1 overflow-hidden">
-                            <div className={`text-sm font-medium truncate ${config.datalab_in ? 'text-slate-700' : 'text-slate-400 italic'}`}>
-                                {config.datalab_in || 'Select input folder...'}
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                         <label className="text-[10px] font-bold uppercase text-slate-400">Input Source</label>
+                         <Toggle checked={config.use_input} onChange={(v) => onChange('use_input', v)} />
+                    </div>
+                    {config.use_input && (
+                        <div className="w-full group cursor-pointer animate-in fade-in slide-in-from-top-1" onClick={() => onOpenFilePicker('input')}>
+                            <div className="relative flex items-center w-full p-1 bg-white border border-slate-200 rounded-xl hover:border-emerald-400 transition-all shadow-sm group-hover:shadow-md">
+                                <div className="flex items-center justify-center w-10 h-10 ml-1 rounded-lg bg-emerald-50 text-emerald-600">
+                                    <FolderInput className="w-5 h-5" />
+                                </div>
+                                <div className="flex-1 px-3 py-1 overflow-hidden">
+                                    <div className={`text-sm font-medium truncate ${config.datalab_in ? 'text-slate-700' : 'text-slate-400 italic'}`}>
+                                        {config.datalab_in || 'Select input folder...'}
+                                    </div>
+                                </div>
+                                <div className="pr-3 text-slate-300 group-hover:text-emerald-500">
+                                    <FolderOpen className="w-4 h-4" />
+                                </div>
                             </div>
                         </div>
-                        <div className="pr-3 text-slate-300 group-hover:text-emerald-500">
-                            <FolderOpen className="w-4 h-4" />
-                        </div>
-                    </div>
+                    )}
                 </div>
 
                 {/* Output Folder */}
-                <div className="w-full group cursor-pointer" onClick={() => onOpenFilePicker('output')}>
-                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-2 ml-1">Output Destination</label>
-                    <div className="relative flex items-center w-full p-1 bg-white border border-slate-200 rounded-xl hover:border-amber-400 transition-all shadow-sm group-hover:shadow-md">
-                        <div className="flex items-center justify-center w-10 h-10 ml-1 rounded-lg bg-amber-50 text-amber-600">
-                            <FolderOutput className="w-5 h-5" />
-                        </div>
-                        <div className="flex-1 px-3 py-1 overflow-hidden">
-                            <div className={`text-sm font-medium truncate ${config.datalab_out ? 'text-slate-700' : 'text-slate-400 italic'}`}>
-                                {config.datalab_out || 'Select output folder...'}
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                         <label className="text-[10px] font-bold uppercase text-slate-400">Output Destination</label>
+                         <Toggle checked={config.use_output} onChange={(v) => onChange('use_output', v)} />
+                    </div>
+                    {config.use_output && (
+                        <div className="w-full group cursor-pointer animate-in fade-in slide-in-from-top-1" onClick={() => onOpenFilePicker('output')}>
+                            <div className="relative flex items-center w-full p-1 bg-white border border-slate-200 rounded-xl hover:border-amber-400 transition-all shadow-sm group-hover:shadow-md">
+                                <div className="flex items-center justify-center w-10 h-10 ml-1 rounded-lg bg-amber-50 text-amber-600">
+                                    <FolderOutput className="w-5 h-5" />
+                                </div>
+                                <div className="flex-1 px-3 py-1 overflow-hidden">
+                                    <div className={`text-sm font-medium truncate ${config.datalab_out ? 'text-slate-700' : 'text-slate-400 italic'}`}>
+                                        {config.datalab_out || 'Select output folder...'}
+                                    </div>
+                                </div>
+                                <div className="pr-3 text-slate-300 group-hover:text-amber-500">
+                                    <FolderOpen className="w-4 h-4" />
+                                </div>
                             </div>
                         </div>
-                         <div className="pr-3 text-slate-300 group-hover:text-amber-500">
-                            <FolderOpen className="w-4 h-4" />
-                        </div>
-                    </div>
+                    )}
                 </div>
             </div>
         </div>

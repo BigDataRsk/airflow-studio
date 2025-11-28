@@ -1,32 +1,5 @@
 
 import { ProjectConfig, PipelineStep, Task } from '../types';
-import JSZip from 'jszip';
-import saveAs from 'file-saver';
-
-// --- Templates ---
-
-const GITIGNORE_TEMPLATE = `
-.DS_Store
-__pycache__/
-*.pyc
-.env
-.ipynb_checkpoints/
-`;
-
-const PIPELINE_TEMPLATE = `
-stages:
-  - build
-  - deploy
-
-build:
-  stage: build
-  script: echo "Building..."
-
-deploy:
-  stage: deploy
-  component: [PLACEHOLDER]
-  script: echo "Deploying..."
-`;
 
 // --- Logic ---
 
@@ -39,8 +12,10 @@ export const generateMetaYaml = (c: ProjectConfig): string => {
   lines.push(`ld_data: ${c.lddata.toUpperCase()}`);
   lines.push(`persoid: ${c.persoid}`);
   
-  if (c.git_remote) {
-      lines.push(`git_remote: ${c.git_remote}`);
+  // Pools list
+  if (c.pools && c.pools.length > 0) {
+      lines.push('pools:');
+      c.pools.forEach(p => lines.push(`  - ${p}`));
   }
 
   if (c.use_vertica && c.silot) {
@@ -49,12 +24,17 @@ export const generateMetaYaml = (c: ProjectConfig): string => {
   if (c.use_conda && c.condaenv) {
     lines.push(`env_name: ${c.condaenv}`);
   }
-  if (c.datalab_in) {
-    lines.push(`input_folder: ${c.datalab_in}`);
+  
+  // Absolute Paths
+  if (c.use_input && c.datalab_in) {
+    const path = c.datalab_in.startsWith('/') ? c.datalab_in : `/home/jovyan/workspaces/${c.datalab_in}`;
+    lines.push(`input_folder: ${path}`);
   }
-  if (c.datalab_out) {
-    lines.push(`output_folder: ${c.datalab_out}`);
+  if (c.use_output && c.datalab_out) {
+    const path = c.datalab_out.startsWith('/') ? c.datalab_out : `/home/jovyan/workspaces/${c.datalab_out}`;
+    lines.push(`output_folder: ${path}`);
   }
+
   if (c.use_nas) {
     lines.push("NAS: true");
   }
@@ -70,10 +50,12 @@ export const generateTreatmentFile = (pipeline: PipelineStep[]): string => {
   const allImports = new Set<string>();
   pipeline.forEach(step => {
     step.tasks.forEach(t => {
-        t.imports.split('\n').forEach(imp => {
-            const trimmed = imp.trim();
-            if (trimmed) allImports.add(trimmed);
-        });
+        if (t.imports) {
+            t.imports.split('\n').forEach(imp => {
+                const trimmed = imp.trim();
+                if (trimmed) allImports.add(trimmed);
+            });
+        }
     });
   });
 
@@ -150,11 +132,14 @@ with DAG('dag_${c.nomprojet.replace(/-/g, '_')}',
   c.pipeline.forEach(step => {
     step.tasks.forEach(task => {
         const safeName = task.name.replace(/[^a-zA-Z0-9_]/g, '_');
+        // Use selected pool or fallback to first available pool or default
+        const taskPool = task.selected_pool || c.pools[0] || 'default_pool';
+
         content += `    t_${safeName} = PythonOperator(\n`;
         content += `        task_id='${safeName}',\n`;
         content += `        python_callable=${safeName},\n`;
         content += `        priority_weight=${getPriorityWeight(task.priority)},\n`;
-        content += `        pool='${c.pool_type || 'default_pool'}',\n`;
+        content += `        pool='${taskPool}',\n`;
         content += `        pool_slots=${task.pool_slots},\n`;
         content += `        dag=dag\n`;
         content += `    )\n\n`;
@@ -203,54 +188,4 @@ with DAG('dag_${c.nomprojet.replace(/-/g, '_')}',
   );
 
   return content;
-};
-
-export const downloadProjectZip = async (c: ProjectConfig) => {
-  const zip = new JSZip();
-  const root = zip.folder(c.nomprojet);
-  
-  if (!root) return;
-
-  const rDirName = `r_${c.coderobin}_${c.nomprojet}`;
-  const rDir = root.folder(rDirName);
-
-  // 1. Root files
-  root.file(".gitignore", GITIGNORE_TEMPLATE);
-  
-  if (c.use_conda) {
-    root.file("airflow-python-311.txt", "# Conda requirements\npandas\nnumpy\n");
-  } else if (c.bundle_base) {
-    root.file("BUNDLE_AIRFLOW.txt", c.bundle_base + "\n");
-  }
-
-  if (c.prepare_tests) {
-    root.file("airflow.cfg", "load_examples = False\n");
-  }
-
-  // 2. CICD
-  const cicd = root.folder(".cicd");
-  if (cicd) {
-    const pipelineContent = PIPELINE_TEMPLATE.replace("component: [PLACEHOLDER]", `component: ${c.nomprojet}`);
-    cicd.file("pipeline.cicd.yaml", pipelineContent);
-  }
-
-  // 3. Source & Dag
-  if (rDir) {
-    const src = rDir.folder("src");
-    if (src) {
-        src.file("__init__.py", ""); 
-        src.file("treatment.py", generateTreatmentFile(c.pipeline));
-    }
-    
-    rDir.file("dag.py", generateDagFile(c));
-    
-    const recipe = rDir.folder("recipe");
-    if (recipe) {
-      recipe.file("meta.yaml", generateMetaYaml(c));
-    }
-  }
-
-  // Generate Zip
-  const content = await zip.generateAsync({ type: "blob" });
-  saveAs(content, `${c.nomprojet}.zip`);
 };

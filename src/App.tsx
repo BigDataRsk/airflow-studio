@@ -12,9 +12,15 @@ import { FileExplorer } from './components/FileExplorer';
 import { Accordion } from './components/Accordion';
 import { TaskEditorPopover } from './components/TaskEditorPopover';
 import { DeploymentManager } from './components/DeploymentManager';
+import { ServiceManager } from '@jupyterlab/services';
 import { 
   FolderGit2, User, Workflow, PlusCircle, ArrowLeft, Layers, Server, Layout, X, GitBranch, ArrowRight, Command, Database, Rocket, Terminal, Edit, BookOpen, Loader2
 } from 'lucide-react';
+
+// Add ServiceManager prop
+interface AppProps {
+    serviceManager?: ServiceManager;
+}
 
 type SectionId = 'identity' | 'pool' | 'pipeline' | 'env' | 'io';
 
@@ -44,7 +50,7 @@ const INITIAL_CONFIG: ProjectConfig = {
     pools: []
 };
 
-const App: React.FC = () => {
+const App: React.FC<AppProps> = ({ serviceManager }) => {
   const [currentView, setCurrentView] = useState<AppView>('HOME');
   const [showFilePicker, setShowFilePicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<'input' | 'output' | 'project_selection' | 'dag_modification' | 'new_project_location'>('input');
@@ -189,7 +195,12 @@ const App: React.FC = () => {
                     <button onClick={() => setShowFilePicker(false)} className="absolute top-4 right-4 p-2 bg-white rounded-full shadow hover:bg-slate-100 z-50">
                         <X className="w-5 h-5 text-slate-500" />
                     </button>
-                    <FileExplorer onSelect={handleFileSelection} onBack={() => setShowFilePicker(false)} />
+                    {/* Inject Service Manager into File Explorer */}
+                    <FileExplorer 
+                        onSelect={handleFileSelection} 
+                        onBack={() => setShowFilePicker(false)} 
+                        serviceManager={serviceManager} 
+                    />
                 </div>
             </div>
         )}
@@ -391,6 +402,7 @@ const App: React.FC = () => {
                         >
                             <TaskBuilder 
                                 pipeline={config.pipeline} 
+                                pools={config.pools} 
                                 onChange={(p) => handleChange('pipeline', p)} 
                                 onEditTask={(s, t, rect) => setEditingTaskState({ stepIdx: s, taskIdx: t, anchorRect: rect })}
                                 onContinue={() => handleSectionComplete('pipeline', 'env')}

@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* JupyterLab Overrides to ensure React app looks correct inside the Widget */
+.jp-AirflowGeneratorWidget {
+  background-color: #F1F5F9; /* slate-100 */
+  overflow-y: auto;
+}
+
+/* Ensure global resets don't break JupyterLab UI, scope them if necessary */
+.jp-AirflowGeneratorWidget input[type="range"] {
+  height: 0.5rem;
+  appearance: none;
+  background: transparent;
+}

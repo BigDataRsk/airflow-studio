@@ -1,29 +1,37 @@
 
 import React from 'react';
-import { Server, Cpu, CircuitBoard } from 'lucide-react';
+import { Server, Cpu, CircuitBoard, Check } from 'lucide-react';
 
 interface PoolSelectorProps {
-  value: string;
-  onChange: (val: string) => void;
+  value: string[]; // Array of selected pools
+  onChange: (val: string[]) => void;
   lddata: string;
 }
 
-export const PoolSelector: React.FC<PoolSelectorProps> = ({ value, onChange, lddata }) => {
+export const PoolSelector: React.FC<PoolSelectorProps> = ({ value = [], onChange, lddata }) => {
   const pools = [
     { id: 'pool_standard', name: `${lddata}_std_pool`, icon: Server, color: 'indigo' },
     { id: 'pool_high_mem', name: `${lddata}_high_mem`, icon: CircuitBoard, color: 'purple' },
     { id: 'pool_compute', name: `${lddata}_compute`, icon: Cpu, color: 'sky' },
   ];
 
+  const togglePool = (poolName: string) => {
+    if (value.includes(poolName)) {
+        onChange(value.filter(v => v !== poolName));
+    } else {
+        onChange([...value, poolName]);
+    }
+  };
+
   return (
     <div className="w-full overflow-x-auto pb-2 custom-scrollbar">
         <div className="flex gap-4 min-w-max">
             {pools.map((pool) => {
-                const isSelected = value === pool.name;
+                const isSelected = value.includes(pool.name);
                 return (
                     <div 
                         key={pool.id}
-                        onClick={() => onChange(pool.name)}
+                        onClick={() => togglePool(pool.name)}
                         className={`
                             group relative cursor-pointer w-64 p-4 rounded-2xl border-2 transition-all duration-300
                             ${isSelected 
@@ -39,11 +47,12 @@ export const PoolSelector: React.FC<PoolSelectorProps> = ({ value, onChange, ldd
                             `}>
                                 <pool.icon className="w-5 h-5" />
                             </div>
-                            {isSelected && (
-                                <span className={`text-[10px] font-bold uppercase tracking-wider text-${pool.color}-600 bg-${pool.color}-50 px-2 py-1 rounded-full`}>
-                                    Selected
-                                </span>
-                            )}
+                            <div className={`
+                                w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors
+                                ${isSelected ? `bg-${pool.color}-500 border-${pool.color}-500 text-white` : 'border-slate-200 bg-slate-50'}
+                            `}>
+                                {isSelected && <Check className="w-3.5 h-3.5" />}
+                            </div>
                         </div>
 
                         <h3 className="font-bold text-slate-800 text-sm mb-1">{pool.name}</h3>

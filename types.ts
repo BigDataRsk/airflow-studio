@@ -7,6 +7,7 @@ export interface Task {
   priority: 'high' | 'mid' | 'low';
   pool_slots: number;
   type: 'python' | 'bash' | 'dummy';
+  selected_pool?: string; // Which pool this task runs in
 }
 
 export interface PipelineStep {
@@ -25,24 +26,24 @@ export interface ProjectConfig {
   stage: 'LIL' | 'SXB';
   use_vertica: boolean;
   silot: string;
-  datalab_out: string;
+  
+  // IO Toggles & Paths
+  use_input: boolean;
   datalab_in: string;
+  use_output: boolean;
+  datalab_out: string;
+
   use_nas: boolean;
   use_gpu: boolean;
   cron: string;
   bundle_base: string;
   prepare_tests: boolean;
   pipeline: PipelineStep[];
-  pool_type: string;
+  pools: string[]; // Multi-select
 }
 
-export enum SilotType {
-  BANK = 'BANK',
-  OTHR = 'OTHR',
-  ACM = 'ACM'
-}
-
-export const ALLOWED_SILOTS = [SilotType.BANK, SilotType.OTHR, SilotType.ACM];
+export const SILOTS_LIL = ['BANK', 'EIT', 'OTHER'];
+export const SILOTS_SXB = ['ACM', 'OTHER', 'BANK'];
 
 export type DeploymentPhase = 'LOCAL_PUSH' | 'MR_VALIDATION' | 'TAGGING' | 'DEPLOY_CI' | 'SUCCESS';
 

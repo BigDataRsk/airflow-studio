@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ProjectConfig } from '../types';
-import { Rocket, Check, Calendar, Clock, MousePointerClick, RefreshCw, CalendarDays, ArrowRight } from 'lucide-react';
+import { Rocket, Check, Calendar, Clock, MousePointerClick, RefreshCw, CalendarDays, ArrowRight, Box, Info } from 'lucide-react';
 
 interface EnvironmentBuilderProps {
   config: ProjectConfig;
@@ -21,21 +21,23 @@ const Toggle = ({ checked, onChange }: { checked: boolean; onChange: (v: boolean
 export const EnvironmentBuilder: React.FC<EnvironmentBuilderProps> = ({ config, onChange, onContinue }) => {
   const [schedFreq, setSchedFreq] = useState<'Manual' | 'Hourly' | 'Daily' | 'Weekly' | 'Monthly' | 'Yearly'>('Manual');
   const [schedTime, setSchedTime] = useState('09:00');
-  const [schedDays, setSchedDays] = useState<number[]>([]); // 0=Sun, 1=Mon... (Weekly)
-  const [schedMonthDay, setSchedMonthDay] = useState<number>(1); // 1-31 (Monthly/Yearly)
-  const [schedMonth, setSchedMonth] = useState<number>(1); // 1-12 (Yearly)
+  const [schedDays, setSchedDays] = useState<number[]>([]); 
+  const [schedMonthDay, setSchedMonthDay] = useState<number>(1); 
+  const [schedMonth, setSchedMonth] = useState<number>(1); 
 
-  // Weekday Config
+  // --- Constants ---
   const WEEKDAYS = [
       { l: 'M', v: 1 }, { l: 'T', v: 2 }, { l: 'W', v: 3 }, { l: 'T', v: 4 }, 
       { l: 'F', v: 5 }, { l: 'S', v: 6 }, { l: 'S', v: 0 }
   ];
-
   const MONTHS = [
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
   ];
-  
-  // Initialize from existing cron
+  const CONDA_ENVS = [
+      'airflow-ml-3.11', 'airflow-data-3.10', 'custom-pandas-2.0', 'pytorch-gpu-env'
+  ];
+
+  // --- Effects ---
   useEffect(() => {
       if (!config.cron) {
           setSchedFreq('Manual');
@@ -43,31 +45,28 @@ export const EnvironmentBuilder: React.FC<EnvironmentBuilderProps> = ({ config, 
       }
       const parts = config.cron.split(' ');
       if (parts.length !== 5) {
-          setSchedFreq('Manual'); // Fallback for complex/invalid
+          setSchedFreq('Manual'); 
           return;
       }
-
       const [m, h, dom, mon, dow] = parts;
 
-      if (dom === '*' && mon === '*' && dow === '*') { // * * * * * (Hourly-ish)
+      if (dom === '*' && mon === '*' && dow === '*') { 
           setSchedFreq('Hourly');
-      } else if (dom === '*' && mon === '*' && dow === '*') { // m * * * *
-           setSchedFreq('Hourly');
-      } else if (dom === '*' && mon === '*' && dow !== '*') { // m h * * d
+      } else if (dom === '*' && mon === '*' && dow !== '*') { 
           setSchedFreq('Weekly');
           setSchedDays(dow.split(',').map(Number));
           setSchedTime(`${h.padStart(2,'0')}:${m.padStart(2,'0')}`);
-      } else if (dom !== '*' && mon === '*' && dow === '*') { // m h d * *
+      } else if (dom !== '*' && mon === '*' && dow === '*') {
           setSchedFreq('Monthly');
           setSchedMonthDay(parseInt(dom));
           setSchedTime(`${h.padStart(2,'0')}:${m.padStart(2,'0')}`);
-      } else if (dom !== '*' && mon !== '*' && dow === '*') { // m h d M *
+      } else if (dom !== '*' && mon !== '*' && dow === '*') { 
           setSchedFreq('Yearly');
           setSchedMonth(parseInt(mon));
           setSchedMonthDay(parseInt(dom));
           setSchedTime(`${h.padStart(2,'0')}:${m.padStart(2,'0')}`);
       } else {
-          setSchedFreq('Daily'); // Default fallback
+          setSchedFreq('Daily'); 
           setSchedTime(`${h.padStart(2,'0')}:${m.padStart(2,'0')}`);
       }
   }, []);
@@ -81,26 +80,14 @@ export const EnvironmentBuilder: React.FC<EnvironmentBuilderProps> = ({ config, 
     const [h, m] = schedTime.split(':');
     const safeH = h || '00';
     const safeM = m || '00';
-    
     let c = '';
 
     switch (schedFreq) {
-        case 'Hourly':
-            c = `${safeM} * * * *`;
-            break;
-        case 'Daily':
-            c = `${safeM} ${safeH} * * *`;
-            break;
-        case 'Weekly':
-            const d = schedDays.length > 0 ? schedDays.join(',') : '*';
-            c = `${safeM} ${safeH} * * ${d}`;
-            break;
-        case 'Monthly':
-            c = `${safeM} ${safeH} ${schedMonthDay} * *`;
-            break;
-        case 'Yearly':
-            c = `${safeM} ${safeH} ${schedMonthDay} ${schedMonth} *`;
-            break;
+        case 'Hourly': c = `${safeM} * * * *`; break;
+        case 'Daily': c = `${safeM} ${safeH} * * *`; break;
+        case 'Weekly': c = `${safeM} ${safeH} * * ${schedDays.length > 0 ? schedDays.join(',') : '*'}`; break;
+        case 'Monthly': c = `${safeM} ${safeH} ${schedMonthDay} * *`; break;
+        case 'Yearly': c = `${safeM} ${safeH} ${schedMonthDay} ${schedMonth} *`; break;
     }
 
     if (c !== config.cron) onChange('cron', c);
@@ -114,7 +101,7 @@ export const EnvironmentBuilder: React.FC<EnvironmentBuilderProps> = ({ config, 
   return (
     <div className="space-y-10">
       
-      {/* 1. Deployment Stage (Production Only) */}
+      {/* 1. Deployment Stage */}
       <div>
         <label className="text-[10px] font-bold uppercase text-slate-400 mb-3 block">Deployment Target</label>
         <div className="grid grid-cols-2 gap-4">
@@ -144,13 +131,86 @@ export const EnvironmentBuilder: React.FC<EnvironmentBuilderProps> = ({ config, 
       </div>
 
       <div className="h-px bg-slate-100 w-full" />
+      
+      {/* 2. Conda Environment */}
+      <div className="bg-slate-50/50 rounded-xl border border-slate-200 p-5 hover:border-indigo-200 transition-colors">
+          <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                 <div className="p-1.5 bg-emerald-100 text-emerald-600 rounded-lg">
+                     <Box className="w-4 h-4" />
+                 </div>
+                 <div>
+                     <h3 className="text-sm font-bold text-slate-700">Conda Environment</h3>
+                     <p className="text-[10px] text-slate-400">Custom Python Dependencies</p>
+                 </div>
+              </div>
+              <Toggle checked={config.use_conda} onChange={(v) => onChange('use_conda', v)} />
+          </div>
 
-      {/* 2. Graphic Schedule */}
+          <div className={`transition-all duration-300 overflow-hidden ${config.use_conda ? 'max-h-40 opacity-100 mt-4' : 'max-h-0 opacity-50'}`}>
+               <label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">Select Environment</label>
+               <div className="relative">
+                   <select 
+                       value={config.condaenv}
+                       onChange={(e) => onChange('condaenv', e.target.value)}
+                       className="w-full appearance-none bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-xl px-4 py-3 outline-none focus:border-indigo-500"
+                   >
+                       {CONDA_ENVS.map(env => <option key={env} value={env}>{env}</option>)}
+                   </select>
+                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                       <ArrowRight className="w-4 h-4 rotate-90" />
+                   </div>
+               </div>
+               <p className="text-[10px] text-slate-400 mt-2 ml-1">Listed from /etc/conda/envs/custom</p>
+          </div>
+      </div>
+
+      <div className="h-px bg-slate-100 w-full" />
+
+      {/* 3. Infrastructure */}
+      <div>
+         <label className="text-[10px] font-bold uppercase text-slate-400 mb-3 block">Resources</label>
+         <div className="flex flex-col gap-4">
+             {/* NAS */}
+             <div className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl">
+                 <div className="flex flex-col">
+                    <label className="flex items-center gap-2 cursor-pointer mb-1">
+                        <Toggle checked={config.use_nas} onChange={(v) => onChange('use_nas', v)} />
+                        <span className="text-xs font-bold text-slate-700">Using NAS</span>
+                    </label>
+                    {config.use_nas && (
+                        <div className="flex items-center gap-1.5 text-[10px] text-amber-600 bg-amber-50 px-2 py-1 rounded ml-12">
+                            <Info className="w-3 h-3" />
+                            Please contact P630 for configuration
+                        </div>
+                    )}
+                 </div>
+             </div>
+
+             {/* GPU */}
+             <div className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl">
+                 <div className="flex flex-col">
+                    <label className="flex items-center gap-2 cursor-pointer mb-1">
+                        <Toggle checked={config.use_gpu} onChange={(v) => onChange('use_gpu', v)} />
+                        <span className="text-xs font-bold text-slate-700">Use GPU</span>
+                    </label>
+                    {config.use_gpu && (
+                        <div className="flex items-center gap-1.5 text-[10px] text-emerald-600 bg-emerald-50 px-2 py-1 rounded ml-12">
+                            <Check className="w-3 h-3" />
+                            1 MIG assigned
+                        </div>
+                    )}
+                 </div>
+             </div>
+         </div>
+      </div>
+
+      <div className="h-px bg-slate-100 w-full" />
+
+      {/* 4. Graphic Schedule */}
       <div>
           <label className="text-[10px] font-bold uppercase text-slate-400 mb-4 block">Job Schedule</label>
-          
           <div className="space-y-4">
-              {/* Frequency Cards */}
               <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
                   {[
                       { id: 'Manual', icon: MousePointerClick, label: 'Manual' },
@@ -177,12 +237,9 @@ export const EnvironmentBuilder: React.FC<EnvironmentBuilderProps> = ({ config, 
                   ))}
               </div>
 
-              {/* Dynamic Controls */}
               {schedFreq !== 'Manual' && (
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 animate-in fade-in slide-in-from-top-2">
                       <div className="flex flex-col gap-6">
-                          
-                          {/* Time Picker (Always visible except manual) */}
                           <div className="flex flex-col gap-2">
                               <label className="text-[10px] font-bold uppercase text-slate-500">Execution Time</label>
                               <div className="flex items-center gap-3">
@@ -198,7 +255,6 @@ export const EnvironmentBuilder: React.FC<EnvironmentBuilderProps> = ({ config, 
                               </div>
                           </div>
                           
-                          {/* Weekly: Days */}
                           {schedFreq === 'Weekly' && (
                               <div className="flex flex-col gap-2">
                                   <label className="text-[10px] font-bold uppercase text-slate-500">Run Days</label>
@@ -225,7 +281,6 @@ export const EnvironmentBuilder: React.FC<EnvironmentBuilderProps> = ({ config, 
                               </div>
                           )}
 
-                          {/* Monthly: Day Grid */}
                           {(schedFreq === 'Monthly' || schedFreq === 'Yearly') && (
                               <div className="flex flex-col gap-2">
                                   <label className="text-[10px] font-bold uppercase text-slate-500">Day of Month</label>
@@ -249,7 +304,6 @@ export const EnvironmentBuilder: React.FC<EnvironmentBuilderProps> = ({ config, 
                               </div>
                           )}
 
-                          {/* Yearly: Months */}
                           {schedFreq === 'Yearly' && (
                               <div className="flex flex-col gap-2">
                                   <label className="text-[10px] font-bold uppercase text-slate-500">Month</label>
@@ -278,23 +332,6 @@ export const EnvironmentBuilder: React.FC<EnvironmentBuilderProps> = ({ config, 
           </div>
       </div>
 
-      <div className="h-px bg-slate-100 w-full" />
-      
-      {/* 3. Infrastructure */}
-      <div>
-         <label className="text-[10px] font-bold uppercase text-slate-400 mb-3 block">Resources</label>
-         <div className="flex gap-4">
-             <label className="flex items-center gap-2 cursor-pointer">
-                 <Toggle checked={config.use_nas} onChange={(v) => onChange('use_nas', v)} />
-                 <span className="text-xs font-bold text-slate-700">Using NAS</span>
-             </label>
-             <label className="flex items-center gap-2 cursor-pointer">
-                 <Toggle checked={config.use_gpu} onChange={(v) => onChange('use_gpu', v)} />
-                 <span className="text-xs font-bold text-slate-700">Use GPU</span>
-             </label>
-         </div>
-      </div>
-
       {/* Continue Action */}
       <div className="flex justify-end pt-4">
              <button 
@@ -304,7 +341,6 @@ export const EnvironmentBuilder: React.FC<EnvironmentBuilderProps> = ({ config, 
                 Continue <ArrowRight className="w-4 h-4" />
              </button>
       </div>
-
     </div>
   );
 };
