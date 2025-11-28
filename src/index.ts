@@ -4,7 +4,7 @@ import {
 } from '@jupyterlab/application';
 import { ILauncher } from '@jupyterlab/launcher';
 import { ReactWidget } from '@jupyterlab/apputils';
-import { serverIcon } from '@jupyterlab/ui-components';
+import { terminalIcon } from '@jupyterlab/ui-components';
 import React from 'react';
 import App from './App';
 
@@ -19,7 +19,7 @@ class AirflowGeneratorWidget extends ReactWidget {
     this.app = app;
     (this as any).addClass('jp-AirflowGeneratorWidget');
     (this as any).title.label = 'Airflow Studio';
-    (this as any).title.icon = serverIcon;
+    (this as any).title.icon = terminalIcon;
     (this as any).title.closable = true;
   }
 
@@ -43,7 +43,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
 
     app.commands.addCommand(command, {
       label: 'Airflow Studio',
-      icon: serverIcon,
+      icon: terminalIcon,
       execute: () => {
         const widget = new AirflowGeneratorWidget(app);
         app.shell.add(widget, 'main');

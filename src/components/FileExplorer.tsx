@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Folder, ChevronRight, Home, ArrowLeft, Check, Loader2, AlertCircle } from 'lucide-react';
-import { ServiceManager } from '@jupyterlab/services';
 
 interface FileExplorerProps {
   onSelect: (path: string) => void;
   onBack: () => void;
-  serviceManager?: ServiceManager; // Injected from App
+  serviceManager?: any; // Injected from App, relaxed to any
 }
 
 interface FileModel {

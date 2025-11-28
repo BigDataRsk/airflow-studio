@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ProjectConfig, PipelineStep, Task, AppView } from './types';
-import { generateMetaYaml, generateDagFile, generateTreatmentFile } from './utils/generator';
+import { api } from './services/api'; 
 import { InputField } from './components/InputField';
 import { EnvironmentBuilder } from './components/EnvironmentBuilder';
 import { TaskBuilder } from './components/TaskBuilder';
@@ -12,14 +12,12 @@ import { FileExplorer } from './components/FileExplorer';
 import { Accordion } from './components/Accordion';
 import { TaskEditorPopover } from './components/TaskEditorPopover';
 import { DeploymentManager } from './components/DeploymentManager';
-import { ServiceManager } from '@jupyterlab/services';
 import { 
   FolderGit2, User, Workflow, PlusCircle, ArrowLeft, Layers, Server, Layout, X, GitBranch, ArrowRight, Command, Database, Rocket, Terminal, Edit, BookOpen, Loader2
 } from 'lucide-react';
 
-// Add ServiceManager prop
 interface AppProps {
-    serviceManager?: ServiceManager;
+    serviceManager?: any;
 }
 
 type SectionId = 'identity' | 'pool' | 'pipeline' | 'env' | 'io';
@@ -55,6 +53,7 @@ const App: React.FC<AppProps> = ({ serviceManager }) => {
   const [showFilePicker, setShowFilePicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<'input' | 'output' | 'project_selection' | 'dag_modification' | 'new_project_location'>('input');
   const [validatingProject, setValidatingProject] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [openSection, setOpenSection] = useState<SectionId | null>('identity');
   const [completedSections, setCompletedSections] = useState<Set<SectionId>>(new Set());
@@ -66,8 +65,7 @@ const App: React.FC<AppProps> = ({ serviceManager }) => {
   } | null>(null);
 
   const [config, setConfig] = useState<ProjectConfig>(INITIAL_CONFIG);
-
-  const [activeTab, setActiveTab] = useState<'meta' | 'dag' | 'treatment' | 'graph'>('graph');
+  const [activeTab, setActiveTab] = useState<'graph'>('graph');
 
   const handleChange = (key: keyof ProjectConfig, value: any) => {
     setConfig(prev => ({ ...prev, [key]: value }));
@@ -96,11 +94,9 @@ const App: React.FC<AppProps> = ({ serviceManager }) => {
       setShowFilePicker(true);
   };
 
-  const handleFileSelection = (path: string) => {
+  const handleFileSelection = async (path: string) => {
       if (pickerMode === 'new_project_location') {
-          // Set workspace context based on selection
           handleChange('lddata', path); 
-          // Default pool based on selection (simulated)
           handleChange('pools', [`${path}_std_pool`]);
           setShowFilePicker(false);
           setCurrentView('GENERATOR');
@@ -111,33 +107,23 @@ const App: React.FC<AppProps> = ({ serviceManager }) => {
           handleChange('datalab_out', path);
           setShowFilePicker(false);
       } else if (pickerMode === 'project_selection') {
-          setValidatingProject(true);
-          setTimeout(() => {
-              setValidatingProject(false);
-              handleChange('nomprojet', path);
-              setShowFilePicker(false);
-              setCurrentView('DEPLOYMENT');
-          }, 1500);
+          handleChange('nomprojet', path);
+          setShowFilePicker(false);
+          setCurrentView('DEPLOYMENT');
       } else if (pickerMode === 'dag_modification') {
           setValidatingProject(true);
-          setTimeout(() => {
-              setValidatingProject(false);
-              setConfig(prev => ({
-                  ...prev,
-                  nomprojet: path,
-                  coderobin: path.substring(0, 4).toLowerCase(),
-                  lddata: 'marketing', // Mock
-                  pools: ['marketing_std_pool'],
-                  pipeline: [
-                      { id: 's1', tasks: [{ id: 't1', name: 'extract_clients', imports: 'import pandas as pd', code: '', priority: 'high', pool_slots: 2, type: 'python' }]},
-                  ]
-              }));
+          try {
+              const loadedConfig = await api.loadProject(path);
+              setConfig(loadedConfig);
               setShowFilePicker(false);
               setCurrentView('MODIFIER');
               setOpenSection('pipeline'); 
-              // Mark basics as done for modifier
-              setCompletedSections(new Set(['identity', 'pool']));
-          }, 1500);
+              setCompletedSections(new Set(['identity', 'pool', 'env', 'io']));
+          } catch (e) {
+              alert("Failed to load project: " + e);
+          } finally {
+              setValidatingProject(false);
+          }
       }
   };
 
@@ -158,12 +144,23 @@ const App: React.FC<AppProps> = ({ serviceManager }) => {
     handleChange('pipeline', newPipeline);
   };
 
+  const handleProceedToDeployment = async () => {
+      setIsSaving(true);
+      try {
+          await api.saveProject(config);
+          setCurrentView('DEPLOYMENT');
+      } catch (e) {
+          alert("Error saving project: " + e);
+      } finally {
+          setIsSaving(false);
+      }
+  };
+
   const currentEditingTask = editingTaskState 
     ? config.pipeline[editingTaskState.stepIdx]?.tasks[editingTaskState.taskIdx] 
     : null;
 
   const isModifier = currentView === 'MODIFIER';
-  const themeColor = isModifier ? 'amber' : 'indigo';
   const ThemeIcon = isModifier ? Edit : PlusCircle;
 
   const isReadyToBuild = completedSections.has('identity') && completedSections.has('pool') && completedSections.has('pipeline') && completedSections.has('env') && completedSections.has('io');
@@ -189,13 +186,12 @@ const App: React.FC<AppProps> = ({ serviceManager }) => {
                     {validatingProject && (
                         <div className="absolute inset-0 z-50 bg-white/90 backdrop-blur flex flex-col items-center justify-center text-slate-800">
                             <Loader2 className={`w-10 h-10 animate-spin mb-4 ${pickerMode === 'dag_modification' ? 'text-amber-600' : 'text-indigo-600'}`} />
-                            <h3 className="text-lg font-bold">Checking Workspace...</h3>
+                            <h3 className="text-lg font-bold">Loading Project from Server...</h3>
                         </div>
                     )}
                     <button onClick={() => setShowFilePicker(false)} className="absolute top-4 right-4 p-2 bg-white rounded-full shadow hover:bg-slate-100 z-50">
                         <X className="w-5 h-5 text-slate-500" />
                     </button>
-                    {/* Inject Service Manager into File Explorer */}
                     <FileExplorer 
                         onSelect={handleFileSelection} 
                         onBack={() => setShowFilePicker(false)} 
@@ -219,7 +215,7 @@ const App: React.FC<AppProps> = ({ serviceManager }) => {
             <div className="relative min-h-screen flex flex-col p-8 overflow-y-auto z-0">
                 <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/20 rounded-full blur-[120px] pointer-events-none z-0"></div>
                 
-                <div className="relative z-10 flex flex-col items-center mb-16 mt-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="relative z-10 flex flex-col items-center mb-16 mt-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
                     <div className="flex items-center justify-center gap-4 mb-4">
                         <div className="w-16 h-16 bg-gradient-to-tr from-indigo-500 to-sky-500 rounded-2xl flex items-center justify-center shadow-2xl shadow-indigo-500/20 transform -rotate-6">
                             <Command className="w-10 h-10 text-white" />
@@ -227,6 +223,12 @@ const App: React.FC<AppProps> = ({ serviceManager }) => {
                         <h1 className="text-5xl md:text-7xl font-bold text-white tracking-tight drop-shadow-lg">
                             Airflow <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-sky-400">Studio</span>
                         </h1>
+                    </div>
+                    {/* Fixed Subtitle visibility */}
+                    <div className="bg-slate-800/50 px-6 py-3 rounded-full backdrop-blur-sm border border-slate-700/50 mt-2">
+                        <p className="text-slate-200 text-lg md:text-xl font-medium text-center tracking-wide">
+                            Design, Configure, and Deploy production-ready Airflow DAGs directly from your cluster.
+                        </p>
                     </div>
                 </div>
 
@@ -453,15 +455,15 @@ const App: React.FC<AppProps> = ({ serviceManager }) => {
                                      <p className="text-slate-400 text-sm mt-1">{isModifier ? 'Review changes and deploy updates.' : 'Review configuration and proceed to deployment.'}</p>
                                  </div>
                                  <button
-                                     disabled={!isReadyToBuild}
-                                     onClick={() => setCurrentView('DEPLOYMENT')}
+                                     disabled={!isReadyToBuild || isSaving}
+                                     onClick={handleProceedToDeployment}
                                      className={`group relative flex items-center gap-3 px-8 py-3 text-white rounded-xl font-bold transition-all shadow-lg active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${
                                          isModifier 
                                          ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-500/20' 
                                          : 'bg-indigo-600 hover:bg-indigo-500 shadow-indigo-500/20'
                                      }`}
                                  >
-                                     <Rocket className="w-5 h-5" />
+                                     {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Rocket className="w-5 h-5" />}
                                      <span>{isModifier ? 'Save Changes & Deploy' : 'Proceed to Deployment'}</span>
                                  </button>
                              </div>
@@ -480,23 +482,16 @@ const App: React.FC<AppProps> = ({ serviceManager }) => {
                                         <div className="w-2.5 h-2.5 rounded-full bg-emerald-400/80"></div>
                                     </div>
                                     <div className="flex p-1 bg-slate-100 rounded-lg">
-                                        {['graph', 'dag', 'treatment', 'meta'].map((t) => (
-                                            <button 
-                                                key={t}
-                                                onClick={() => setActiveTab(t as any)} 
-                                                className={`px-3 py-1 text-[10px] font-bold uppercase rounded-md transition-all ${activeTab === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                                            >
-                                                {t}
-                                            </button>
-                                        ))}
+                                        <button 
+                                            className="px-3 py-1 text-[10px] font-bold uppercase rounded-md transition-all bg-white text-indigo-600 shadow-sm"
+                                        >
+                                            graph
+                                        </button>
                                     </div>
                                 </div>
 
                                 <div className="flex-1 overflow-hidden relative bg-slate-50/50">
-                                    {activeTab === 'graph' && <GraphPreview pipeline={config.pipeline} />}
-                                    {activeTab === 'dag' && <div className="h-full overflow-auto custom-scrollbar"><CodeBlock content={generateDagFile(config)} /></div>}
-                                    {activeTab === 'treatment' && <div className="h-full overflow-auto custom-scrollbar"><CodeBlock content={generateTreatmentFile(config.pipeline)} /></div>}
-                                    {activeTab === 'meta' && <div className="h-full overflow-auto custom-scrollbar"><CodeBlock content={generateMetaYaml(config)} /></div>}
+                                    <GraphPreview pipeline={config.pipeline} />
                                 </div>
                             </div>
                          </div>

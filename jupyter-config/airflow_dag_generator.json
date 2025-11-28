@@ -1,0 +1,8 @@
+
+{
+  "ServerApp": {
+    "jpserver_extensions": {
+      "airflow_dag_generator": true
+    }
+  }
+}

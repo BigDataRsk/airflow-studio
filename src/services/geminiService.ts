@@ -1,18 +1,19 @@
-// OFFLINE MODE COMPLIANCE
-// This file has been neutralized to prevent external calls to Google Gemini API
-// in an air-gapped cluster environment.
+// OFFLINE MODE - SECURITY COMPLIANCE
+// External AI calls are removed to prevent data exfiltration and ensure functionality in air-gapped clusters.
 
 export const generateCronFromText = async (text: string): Promise<string> => {
-  console.warn("AI Generation is disabled in Offline Mode.");
+  const lower = text.toLowerCase().trim();
   
-  // Simple heuristic fallback for basic requests
-  const lower = text.toLowerCase();
-  
-  if (lower.includes("daily") && lower.includes("9")) return "0 9 * * *";
-  if (lower.includes("hourly")) return "0 * * * *";
+  // Deterministic Heuristics
   if (lower.includes("midnight")) return "0 0 * * *";
-  if (lower.includes("monday")) return "0 9 * * 1";
+  if (lower.includes("daily") && lower.includes("9")) return "0 9 * * *";
+  if (lower.includes("daily")) return "0 0 * * *";
+  if (lower.includes("hourly")) return "0 * * * *";
+  if (lower.includes("every monday")) return "0 9 * * 1";
+  if (lower.includes("every friday")) return "0 9 * * 5";
+  if (lower.includes("week")) return "0 0 * * 0";
+  if (lower.includes("month")) return "0 0 1 * *";
   
-  // Return empty string to force manual entry if heuristic fails
+  // No AI fallback possible offline
   return "";
 };
